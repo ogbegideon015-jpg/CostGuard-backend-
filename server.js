@@ -43,7 +43,7 @@ const upload = multer({
 // ── BREVO EMAIL FUNCTION ──
 async function sendBrevoEmail({ to, toName, subject, htmlContent, attachments }) {
   return new Promise((resolve, reject) => {
-    const payload = JSON.stringify({
+    const emailBody = {
       sender: {
         name: 'BossGiddy CostGuard',
         email: process.env.BREVO_SENDER_EMAIL || 'procurement.bossgiddycostguard@gmail.com'
@@ -51,8 +51,12 @@ async function sendBrevoEmail({ to, toName, subject, htmlContent, attachments })
       to: [{ email: to, name: toName || to }],
       subject,
       htmlContent,
-      attachment: attachments || []
-    });
+    };
+    // Only add attachment key if there are actual attachments
+    if (attachments && attachments.length > 0) {
+      emailBody.attachment = attachments;
+    }
+    const payload = JSON.stringify(emailBody);
 
     const options = {
       hostname: 'api.brevo.com',
@@ -208,11 +212,13 @@ app.post('/api/submit', upload.array('files', 10), async (req, res) => {
     const data = JSON.parse(req.body.formData);
     const ref = data.ref || ('CG-2026-' + Math.random().toString(36).substring(2, 6).toUpperCase());
 
-    // Build attachments for Brevo (base64)
-    const attachments = (req.files || []).map(file => ({
-      name: file.originalname,
-      content: file.buffer.toString('base64')
-    }));
+    // Build attachments for Brevo (base64) — only if files were uploaded
+    const attachments = (req.files || [])
+      .filter(file => file.buffer && file.buffer.length > 0)
+      .map(file => ({
+        name: file.originalname,
+        content: file.buffer.toString('base64')
+      }));
 
     // Email 1: to procurement inbox
     await sendBrevoEmail({
@@ -220,7 +226,7 @@ app.post('/api/submit', upload.array('files', 10), async (req, res) => {
       toName: 'BossGiddy Procurement',
       subject: `📋 New Supplier Quotation — ${data.company || 'Unknown'} [${ref}]`,
       htmlContent: buildEmailHTML(data, ref),
-      attachments
+      attachments: attachments.length > 0 ? attachments : undefined
     });
 
     // Email 2: confirmation to supplier
