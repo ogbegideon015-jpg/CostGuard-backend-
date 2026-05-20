@@ -243,7 +243,8 @@ footer{background:var(--card);border-top:1px solid var(--border);padding:48px 6%
   .hero-right{display:none;}
   .how-inner{grid-template-columns:1fr 1fr;}
   .val-grid{grid-template-columns:1fr 1fr;}
-  .main-section{grid-template-columns:1fr;padding:48px 6%;}
+  .main-section{grid-template-columns:1fr!important;padding:48px 6%;}
+  #form-grid{grid-template-columns:1fr!important;display:flex!important;flex-direction:column!important;}
   .footer-grid{grid-template-columns:1fr 1fr;}
 }
 @media(max-width:640px){
@@ -251,11 +252,20 @@ footer{background:var(--card);border-top:1px solid var(--border);padding:48px 6%
   .how-inner{grid-template-columns:1fr;}
   .how-step{border-right:none;border-bottom:1px solid var(--border);}
   .val-grid{grid-template-columns:1fr;}
-  .fg-2,.fg-3{grid-template-columns:1fr;}
-  .form-body{padding:24px 18px;}
-  .form-footer{flex-direction:column;align-items:stretch;}
+  .fg-2,.fg-3{grid-template-columns:1fr!important;display:flex!important;flex-direction:column!important;}
+  .form-body{padding:20px 14px;}
+  .form-topbar{padding:16px 14px;flex-direction:column;align-items:flex-start;gap:10px;}
+  .form-footer{flex-direction:column;align-items:stretch;padding:16px 14px;}
   .btn-gold.submit{width:100%;justify-content:center;}
   .footer-grid{grid-template-columns:1fr;}
+  .footer-note{font-size:11px;}
+  #form-grid{grid-template-columns:1fr!important;display:flex!important;flex-direction:column!important;}
+  .upload-zone{padding:28px 16px;}
+  .upload-title{font-size:15px;}
+  .scard{margin-bottom:14px;}
+  nav{padding:10px 4%;}
+  #quote-form{padding:40px 4%!important;}
+  .form-ref-pill{font-size:9px;}
 }
 
 /* Entrance animations */
@@ -765,6 +775,9 @@ const required = [
 
 // ── BACKEND URL — change this to your deployed server URL ──
 const BACKEND_URL = 'https://costguard-backend-1.onrender.com';
+
+// Wake up Render backend (free tier sleeps after inactivity)
+fetch(BACKEND_URL + '/health').catch(() => {});
 
 async function submitForm(){
   // Validate required fields
