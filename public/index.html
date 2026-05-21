@@ -753,16 +753,44 @@ function calcRow(n){
 }
 addRow(); addRow(); addRow(); addRow();
 
-// File handler
+// File handler — accumulates files across multiple selections
+let allFiles = [];
+
 function handleFiles(input){
+  const newFiles = Array.from(input.files);
+  newFiles.forEach(newFile => {
+    // Avoid duplicates by name
+    if(!allFiles.find(f => f.name === newFile.name && f.size === newFile.size)){
+      allFiles.push(newFile);
+    }
+  });
+  renderFileChips();
+  // Reset input so same file can be re-added if removed
+  input.value = '';
+}
+
+function removeFile(index){
+  allFiles.splice(index, 1);
+  renderFileChips();
+}
+
+function renderFileChips(){
   const chips = document.getElementById('file-chips');
   chips.innerHTML = '';
-  Array.from(input.files).forEach(f => {
+  allFiles.forEach((f, i) => {
     const c = document.createElement('div');
     c.className = 'file-chip';
-    c.innerHTML = `📄 ${f.name} <span style="color:var(--text-sub);font-size:10px;">(${(f.size/1024).toFixed(0)}KB)</span>`;
+    c.style.cssText = 'display:flex;align-items:center;gap:8px;';
+    c.innerHTML = `📄 ${f.name} <span style="color:var(--text-sub);font-size:10px;">(${(f.size/1024).toFixed(0)}KB)</span><span onclick="removeFile(${i})" style="color:var(--red);cursor:pointer;font-size:14px;font-weight:700;margin-left:4px;" title="Remove">✕</span>`;
     chips.appendChild(c);
   });
+  // Update upload zone text
+  const sub = document.querySelector('.upload-sub');
+  if(allFiles.length > 0){
+    sub.innerHTML = `<span style="color:var(--green);font-weight:600;">${allFiles.length} file${allFiles.length>1?'s':''} selected</span> — click or drop to add more`;
+  } else {
+    sub.innerHTML = 'Price lists, catalogues, certifications, product sheets — PDF, Excel, Word, Images · Max 10MB each';
+  }
 }
 
 // Required fields
@@ -847,9 +875,8 @@ async function submitForm(){
   // Build FormData (supports file uploads)
   const payload = new FormData();
   payload.append('formData', JSON.stringify(formData));
-  const fileInput = document.getElementById('file-input');
-  if(fileInput.files.length){
-    Array.from(fileInput.files).forEach(f => payload.append('files', f));
+  if(allFiles.length){
+    allFiles.forEach(f => payload.append('files', f));
   }
 
   // Show loading state on button
@@ -858,11 +885,24 @@ async function submitForm(){
   btn.innerHTML = '⏳ Sending...';
   btn.disabled = true;
 
+  // Show warming up message if server is cold
+  btn.innerHTML = '⏳ Connecting...';
+
+  // First wake up the server
+  try { await fetch(BACKEND_URL + '/health', {signal: AbortSignal.timeout(8000)}); } catch(e){}
+
+  btn.innerHTML = '⏳ Sending...';
+
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
     const res = await fetch(`${BACKEND_URL}/api/submit`, {
       method: 'POST',
       body: payload,
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
     const result = await res.json();
 
     if(result.success){
@@ -872,7 +912,11 @@ async function submitForm(){
       alert('❌ Submission failed: ' + (result.error || 'Unknown error. Please try again.'));
     }
   } catch(err){
-    alert('❌ Could not reach the server. Please check your connection or contact support.\n\nError: ' + err.message);
+    if(err.name === 'AbortError'){
+      alert('⏱️ The server is taking too long to respond. This happens when the server is waking up from sleep.\n\nPlease wait 30 seconds and try submitting again.');
+    } else {
+      alert('❌ Could not reach the server. Please check your connection and try again.\n\nError: ' + err.message);
+    }
   } finally {
     btn.innerHTML = origText;
     btn.disabled = false;
@@ -889,6 +933,8 @@ function resetForm(){
   document.getElementById('terms-check').checked=false;
   document.querySelector('.terms-box').style.borderColor='';
   document.getElementById('file-chips').innerHTML='';
+  allFiles=[];
+  document.querySelector('.upload-sub').innerHTML='Price lists, catalogues, certifications, product sheets — PDF, Excel, Word, Images · Max 10MB each';
   document.getElementById('line-body').innerHTML='';
   rowCount=0; addRow(); addRow(); addRow(); addRow();
   currentRef=genRef();
